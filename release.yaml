@@ -1,0 +1,57 @@
+
+# TASK 1: Install Cloud Foundry CLI 6.43.0
+
+steps:
+- task: ms-vsts.cloud-foundry-build-extension.cloud-foundry-cli-install-task.CloudFoundryCLIInstall@0
+  displayName: 'Install Cloud Foundry CLI 6.43.0'
+
+
+
+# TASK 2:  Bash Script - deploy the app
+
+#Your build pipeline references a secret variable named ‘password’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab, and then select the option to make it secret. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘RUN_PENDING_MIGRATIONS’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘DB_SERVICE_NAME’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+variables:
+  api: 'https://api.london.cloud.service.gov.uk'
+  email: 'farzad.jalali@bjss.com'
+  appname: 'rpr-alpha-prototype1'
+
+steps:
+- bash: |
+    cf login -a $(api) -u $(email) -p $(password)
+   
+   cd ./_alpha-prototype/drop/
+   
+   cf push $(appname)   --no-start
+   
+   cf set-env $(appname) RUN_PENDING_MIGRATIONS $(RUN_PENDING_MIGRATIONS) 
+   cf set-env $(appname) DB_SERVICE_NAME $(DB_SERVICE_NAME) 
+   
+   cf start $(appname) 
+  displayName: 'Bash Script - deploy the app'
+
+
+
+# TASK 3:  Bash Script - basic auth
+
+#Your build pipeline references a secret variable named ‘basic_auth_password’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab, and then select the option to make it secret. See https://go.microsoft.com/fwlink/?linkid=865972
+variables:
+  basic_auth_app_name: 'rpr-alpha-auth-app'
+  basic_auth_user: 'rpruser'
+
+steps:
+- bash: |
+   git clone https://github.com/alphagov/paas-cf_basic_auth_route_service
+   cd paas-cf_basic_auth_route_service
+   cf push rpr-alpha-auth-app --no-start
+   
+   cf set-env $(basic_auth_app_name) AUTH_USERNAME $(basic_auth_user)
+   cf set-env $(basic_auth_app_name) AUTH_PASSWORD $(basic_auth_password)
+   cf start $(basic_auth_app_name)
+   
+   cf create-user-provided-service rpr-auth-service -r https://rpr-alpha-auth-app.london.cloudapps.digital
+   cf bind-route-service london.cloudapps.digital rpr-auth-service --hostname rpr-alpha-prototype1   
+  displayName: 'Bash Script - basic auth'
+
+
